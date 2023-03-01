@@ -4,33 +4,35 @@ namespace FinanceTracker.DAL.Extensions;
 
 public static class PropertyInfoExtensions
 {
-    public static string ListColumns(this IEnumerable<PropertyInfo> source)
+    public static string ListColumns(this IDictionary<string, PropertyInfo> source)
     {
-        return string.Join(",", WithoutId(source).Select(p => p.Name));
+        return string.Join(", ", WithoutId(source).Select(p => $"[{p.Key}]"));
     }
 
-    public static string ListParameters(this IEnumerable<PropertyInfo> source)
+    public static string ListParameters(this IDictionary<string, PropertyInfo> source)
     {
-        return string.Join(",", WithoutId(source).Select(p => $"@{p.Name}"));
+        return string.Join(", ", WithoutId(source).Select(p => $"@{p.Key}"));
     }
 
-    public static string GetUpdateList(this IEnumerable<PropertyInfo> source)
+    public static string GetUpdateList(this IDictionary<string, PropertyInfo> source)
     {
-        return string.Join(",", WithoutId(source).Select(p => $"{p.Name} = @{p.Name}"));
+        return string.Join(", ", WithoutId(source).Select(p => $"[{p.Key}] = @{p.Key}"));
     }
-    
-    public static string ListParametersForMultipleEntities(this IEnumerable<PropertyInfo> source, int entitiesCount)
+
+    public static string ListParametersForMultipleEntities(this IDictionary<string, PropertyInfo> source,
+        int entitiesCount)
     {
         return Enumerable.Range(0, entitiesCount)
             .Select(i => WithoutId(source)
-                .Select(p => $"@{p.Name}{i}")
-                .Aggregate((current, next) => $"{current},{next}")
+                .Select(p => $"@{p.Key}{i}")
+                .Aggregate((current, next) => $"{current}, {next}")
             )
             .Aggregate((current, next) => $"{current}\n{next}");
     }
 
-    private static IEnumerable<PropertyInfo> WithoutId(IEnumerable<PropertyInfo> properties)
+    private static IEnumerable<KeyValuePair<string, PropertyInfo>> WithoutId(
+        IDictionary<string, PropertyInfo> properties)
     {
-        return properties.Where(p => p.Name != "Id");
+        return properties.Where(p => p.Key != "Id");
     }
 }

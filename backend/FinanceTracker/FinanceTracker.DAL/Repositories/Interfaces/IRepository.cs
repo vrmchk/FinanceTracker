@@ -16,7 +16,6 @@ public interface IRepository<T> where T : BaseEntity, new()
     T? Get(Func<T, bool> predicate, bool withRelations = true);
     Task<T?> GetAsync(Func<T, bool> predicate, bool withRelations = true);
 
-
     int Add(T entity);
     Task<int> AddAsync(T entity);
 

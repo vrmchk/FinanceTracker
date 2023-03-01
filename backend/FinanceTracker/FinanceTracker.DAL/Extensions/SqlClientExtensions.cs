@@ -6,16 +6,15 @@ namespace FinanceTracker.DAL.Extensions;
 
 public static class SqlClientExtensions
 {
-    public static T MapToObject<T>(this SqlDataReader reader, PropertyInfo[]? properties = null)
+    public static T MapToObject<T>(this SqlDataReader reader, IDictionary<string, PropertyInfo> propertiesNames)
         where T : BaseEntity, new()
     {
-        properties ??= typeof(T).GetProperties();
         var entity = (T)Activator.CreateInstance(typeof(T))!;
-        foreach (var property in properties)
+        foreach (var (name, property) in propertiesNames)
         {
-            if (!reader.IsDBNull(reader.GetOrdinal(property.Name)))
+            if (!reader.IsDBNull(reader.GetOrdinal(name)))
             {
-                property.SetValue(entity, reader[property.Name]);
+                property.SetValue(entity, reader[name]);
             }
         }
 
@@ -27,31 +26,26 @@ public static class SqlClientExtensions
         command.Parameters.AddWithValue("@Id", id);
     }
 
-    public static void SetParameters<T>(this SqlCommand command, T entity, bool setId,
-        PropertyInfo[]? properties = null)
+    public static void SetParameters<T>(this SqlCommand command, T entity,
+        IDictionary<string, PropertyInfo> propertiesNames, bool setId)
         where T : BaseEntity, new()
     {
-        properties ??= typeof(T).GetProperties();
-        properties = properties.Where(p => setId || p.Name != "Id").ToArray();
-        foreach (var property in properties)
+        foreach (var (name, property) in propertiesNames.Where(pair => setId || pair.Key != "Id"))
         {
-            command.Parameters.AddWithValue($"@{property.Name}", property.GetValue(entity) ?? DBNull.Value);
+            command.Parameters.AddWithValue($"@{name}", property.GetValue(entity) ?? DBNull.Value);
         }
     }
 
-    public static void SetParametersForMultipleEntities<T>(this SqlCommand command, List<T> entities, bool setId,
-        PropertyInfo[]? properties = null)
+    public static void SetParametersForMultipleEntities<T>(this SqlCommand command, List<T> entities,
+        IDictionary<string, PropertyInfo> propertiesNames, bool setId)
         where T : BaseEntity, new()
     {
-        properties ??= typeof(T).GetProperties();
-        properties = properties.Where(p => setId || p.Name != "Id").ToArray();
         int index = 0;
         foreach (var entity in entities)
         {
-            foreach (var property in properties)
+            foreach (var (name, property) in propertiesNames.Where(pair => setId || pair.Key != "Id"))
             {
-                command.Parameters.AddWithValue($"@{property.Name}{index++}",
-                    property.GetValue(entity) ?? DBNull.Value);
+                command.Parameters.AddWithValue($"@{name}{index++}", property.GetValue(entity) ?? DBNull.Value);
             }
         }
     }
