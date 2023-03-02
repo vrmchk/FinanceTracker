@@ -25,31 +25,11 @@ public abstract class RepositoryBase<T> : IRepository<T> where T : BaseEntity, n
                 p => p));
     }
 
-    public virtual IEnumerable<T> GetAll(bool withRelations = true)
-    {
-        return GetAll(_ => true, withRelations);
-    }
-
     public virtual async IAsyncEnumerable<T> GetAllAsync(bool withRelations = true)
     {
         await foreach (var entity in GetAllAsync(_ => true, withRelations))
         {
             yield return entity;
-        }
-    }
-
-    public IEnumerable<T> GetAll(Func<T, bool> predicate, bool withRelations = true)
-    {
-        using var connection = new SqlConnection(ConnectionString);
-        connection.Open();
-        var sql = $"SELECT * FROM [{TableName}]";
-        var command = new SqlCommand(sql, connection);
-        using var reader = command.ExecuteReader();
-        while (reader.Read())
-        {
-            var entity = reader.MapToObject<T>(PropertiesNames);
-            if (predicate(entity))
-                yield return entity;
         }
     }
 
@@ -68,36 +48,12 @@ public abstract class RepositoryBase<T> : IRepository<T> where T : BaseEntity, n
         }
     }
 
-    public virtual T? GetById(int id, bool withRelations = true)
-    {
-        var sql = $"SELECT * FROM [{TableName}] WHERE [Id] = @Id";
-        return Execute(sql,
-            command => command.SetIdParameter(id),
-            reader => reader.Read() ? reader.MapToObject<T>(PropertiesNames) : null);
-    }
-
     public virtual async Task<T?> GetByIdAsync(int id, bool withRelations = true)
     {
         var sql = $"SELECT * FROM [{TableName}] WHERE [Id] = @Id";
         return await ExecuteAsync(sql,
-            command => command.SetIdParameter(id),
+            command => command.Parameters.AddWithValue("@Id", id),
             async reader => await reader.ReadAsync() ? reader.MapToObject<T>(PropertiesNames) : null);
-    }
-
-    public virtual T? Get(Func<T, bool> predicate, bool withRelations = true)
-    {
-        var sql = $"SELECT * FROM [{TableName}]";
-        return Execute(sql, null, reader =>
-        {
-            while (reader.Read())
-            {
-                var entity = reader.MapToObject<T>(PropertiesNames);
-                if (predicate(entity))
-                    return entity;
-            }
-
-            return null;
-        });
     }
 
     public virtual async Task<T?> GetAsync(Func<T, bool> predicate, bool withRelations = true)
@@ -116,17 +72,6 @@ public abstract class RepositoryBase<T> : IRepository<T> where T : BaseEntity, n
         });
     }
 
-    public virtual int Add(T entity)
-    {
-        var sql = $"""
-            INSERT INTO [{TableName}] ({PropertiesNames.ListColumns()}) 
-            VALUES ({PropertiesNames.ListParameters()})
-        """;
-        return ExecuteNonQuery(sql,
-            command => command.SetParameters(entity, PropertiesNames, setId: false)
-        );
-    }
-
     public virtual async Task<int> AddAsync(T entity)
     {
         var sql = $"""
@@ -135,18 +80,6 @@ public abstract class RepositoryBase<T> : IRepository<T> where T : BaseEntity, n
         """;
         return await ExecuteNonQueryAsync(sql,
             command => command.SetParameters(entity, PropertiesNames, setId: false)
-        );
-    }
-
-    public virtual int AddRange(List<T> entities)
-    {
-        var sql = $"""
-            INSERT INTO [{TableName}] ({PropertiesNames.ListColumns()}) 
-            VALUES ({PropertiesNames.ListParameters()})
-        """;
-
-        return ExecuteNonQuery(sql,
-            command => command.SetParametersForMultipleEntities(entities, PropertiesNames, setId: false)
         );
     }
 
@@ -162,27 +95,11 @@ public abstract class RepositoryBase<T> : IRepository<T> where T : BaseEntity, n
         );
     }
 
-    public virtual int Update(T entity)
-    {
-        var sql = $"UPDATE [{TableName}] SET {PropertiesNames.GetUpdateList()} WHERE [Id] = @Id";
-        return ExecuteNonQuery(sql,
-            command => command.SetParameters(entity, PropertiesNames, setId: true)
-        );
-    }
-
     public virtual async Task<int> UpdateAsync(T entity)
     {
         var sql = $"UPDATE [{TableName}] SET {PropertiesNames.GetUpdateList()} WHERE [Id] = @Id";
         return await ExecuteNonQueryAsync(sql,
             command => command.SetParameters(entity, PropertiesNames, setId: true)
-        );
-    }
-
-    public virtual int Delete(T entity)
-    {
-        var sql = $"DELETE FROM [{TableName}] WHERE [Id] = @Id";
-        return ExecuteNonQuery(sql,
-            command => command.Parameters.AddWithValue("@Id", entity.Id)
         );
     }
 
@@ -194,18 +111,7 @@ public abstract class RepositoryBase<T> : IRepository<T> where T : BaseEntity, n
         );
     }
 
-    protected TResult Execute<TResult>(string sql, Action<SqlCommand>? parametersFactory,
-        Func<SqlDataReader, TResult> resultFactory)
-    {
-        using var connection = new SqlConnection(ConnectionString);
-        connection.Open();
-        var command = new SqlCommand(sql, connection);
-        parametersFactory?.Invoke(command);
-        using var reader = command.ExecuteReader();
-        return resultFactory(reader);
-    }
-
-    protected async Task<TResult> ExecuteAsync<TResult>(string sql, Action<SqlCommand>? parametersFactory,
+    protected async Task<TResult?> ExecuteAsync<TResult>(string sql, Action<SqlCommand>? parametersFactory,
         Func<SqlDataReader, Task<TResult>> resultFactory)
     {
         await using var connection = new SqlConnection(ConnectionString);
@@ -214,16 +120,6 @@ public abstract class RepositoryBase<T> : IRepository<T> where T : BaseEntity, n
         parametersFactory?.Invoke(command);
         await using var reader = await command.ExecuteReaderAsync();
         return await resultFactory(reader);
-    }
-
-    protected int ExecuteNonQuery(string sql, Action<SqlCommand> parametersFactory)
-    {
-        using var connection = new SqlConnection(ConnectionString);
-        connection.Open();
-        var command = new SqlCommand(sql, connection);
-        parametersFactory(command);
-        var rowsAffected = command.ExecuteNonQuery();
-        return rowsAffected;
     }
 
     protected async Task<int> ExecuteNonQueryAsync(string sql, Action<SqlCommand> parametersFactory)

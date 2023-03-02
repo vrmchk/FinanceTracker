@@ -2,7 +2,7 @@
 
 namespace FinanceTracker.DAL.Extensions;
 
-public static class PropertyInfoExtensions
+public static class PropertyInfoDictionaryExtensions
 {
     public static string ListColumns(this IDictionary<string, PropertyInfo> source)
     {

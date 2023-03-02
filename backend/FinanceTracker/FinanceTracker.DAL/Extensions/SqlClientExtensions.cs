@@ -21,11 +21,6 @@ public static class SqlClientExtensions
         return entity;
     }
 
-    public static void SetIdParameter(this SqlCommand command, int id)
-    {
-        command.Parameters.AddWithValue("@Id", id);
-    }
-
     public static void SetParameters<T>(this SqlCommand command, T entity,
         IDictionary<string, PropertyInfo> propertiesNames, bool setId)
         where T : BaseEntity, new()
